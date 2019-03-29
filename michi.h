@@ -14,7 +14,7 @@
 #define BOARD_IMIN (N+1)
 #define BOARD_IMAX (BOARDSIZE-N-1)
 #define LARGE_BOARDSIZE ((N+14)*(N+7))
-#define BUFLEN 256
+#define BUFLEN 256 // input buffer
 #define MAX_GAME_LEN (N*N*3)
 #define SINGLEPT_OK       1
 #define SINGLEPT_NOK      0
@@ -40,7 +40,7 @@ extern  int PRIOR_CFG[];   // priors for moves in cfg dist. 1, 2, 3
 #define PROB_SSAREJECT 0.9 // prob of rejecting suggested self-atari in playout
 #define PROB_RSAREJECT 0.5 // prob of rejecting random self-atari in playout
                            // this is lower than above to allow nakade
-#define RESIGN_THRES     0.2
+#define RESIGN_THRES     -1.0f
 #define FASTPLAY20_THRES 0.8 //if at 20% playouts winrate is >this, stop reading
 #define FASTPLAY5_THRES  0.95 //if at 5% playouts winrate is >this, stop reading
 

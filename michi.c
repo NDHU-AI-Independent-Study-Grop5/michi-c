@@ -1187,9 +1187,9 @@ Point parse_coord(char *s)
             break;
         }
         str[i] = toupper(s[i]);
-    }
+    } // just to upper 
     if(strcmp(str, "PASS") == 0) return PASS_MOVE;
-    sscanf(s, "%c%d", &c, &y);
+    sscanf(s, "%c%d", &c, &y); // ex D5
     c = toupper(c);
     if (c<'J') x = c-'@';
     else       x = c-'@'-1;
@@ -1300,7 +1300,7 @@ void gtp_io(void)
         line[strlen(line)-1] = 0;
         log_fmt_s('C', line, NULL);
         command = strtok(line, " \t\n");
-        if (command == NULL) continue;          // ignore newline
+        if (command == NULL) continue;          // ignore newline epmty line
         if (command[0] == '#') continue;        // ignore comment line
         if (sscanf(command, "%d", &i) == 1) {
             cmdid = command;
@@ -1314,7 +1314,7 @@ void gtp_io(void)
             ret = strtok(NULL, " \t\n");            // color is ignored
             char *str = strtok(NULL, " \t\n");
             if(str == NULL) goto finish_command;
-            Point pt = parse_coord(str);
+            Point pt = parse_coord(str); 
             if (pos->color[pt] == '.')
                 ret = play_move(pos, pt);           // suppose alternate play
             else {
