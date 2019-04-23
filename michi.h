@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <math.h>
+#include <stdbool.h>
 //========================= Definition of Data Structures =====================
 
 // --------------------------- Board Constants --------------------------------

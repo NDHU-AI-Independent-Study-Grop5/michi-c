@@ -1401,7 +1401,7 @@ void gtp_io(void)
             printf("=%s \n\n", cmdid);
             log_hashtable_synthesis();
             break;
-        }
+        }   
         else {
             sprintf(msg, "Warning: Ignoring unknown command - %s\n", command);
             ret = msg;
@@ -1414,6 +1414,61 @@ finish_command:
         fflush(stdout);
     }
 }
+
+bool copy_of_gtp_io(void)
+{
+    char line[BUFLEN], *cmdid, *command, msg[BUFLEN], *ret, *prevret = "-1";
+    char *known_commands="genmove";
+    int      game_ongoing=1, i;
+    int      *owner_map=calloc(BOARDSIZE, sizeof(int));
+    TreeNode *tree;
+    Position *pos, pos2;
+    Point p1, p2;
+
+    pos = &pos2;
+    empty_position(pos);
+    tree = new_tree_node(pos);
+
+    for(;;) {
+        ret = "";
+        
+        command = "genmove";
+
+        if (strcmp(command, "genmove") == 0) {
+            c2++; game_ongoing = 1;
+            Point pt;
+            if (pos->last == PASS_MOVE && pos->n>2) {
+                log_fmt_s('I', "Opponent pass. I pass", NULL);
+                pt = PASS_MOVE;
+            }
+            else {
+                free_tree(tree);
+                tree = new_tree_node(pos);
+                pt = tree_search(tree, N_SIMS, owner_map, 0);
+            }
+            if (pt == PASS_MOVE)
+                pass_move(pos);
+            else if (pt != RESIGN_MOVE)
+                play_move(pos, pt);
+            ret = str_coord(pt, buf);
+            p1 = pt; 
+        }
+finish_command:
+        // if ((ret[0]=='E' && ret[1]=='r')
+        //                 || ret[0]=='W') printf("\n?%s %s\n\n", cmdid, ret);
+        // else                            printf("\n=%s %s\n\n", cmdid, ret);
+        if( p1 == p2 && p1 == PASS_MOVE) break;
+        fflush(stdout);
+        p2 = p1;
+    }
+
+    char put_trash[BOARDSIZE];
+    int  capB, capW;
+    make_pretty(pos, put_trash, &capB, &capW);
+
+    return (capB>capW);
+}
+
 
 int michi_console(int argc, char *argv[])
 {
@@ -1435,9 +1490,27 @@ int michi_console(int argc, char *argv[])
     FORALL_POINTS(pos,pt)
         if (pos->color[pt] == '.') slist_push(allpoints,pt);
 
+    if (argc==3) if (strcmp(argv[1],"autoplay") == 0) {
+        int play_times;
+        int blackWin = 0,whiteWin = 0;
+        sscanf(argv[2], "%d", &play_times);
+
+        for(int i = 0; i < play_times; i++) {
+            if(copy_of_gtp_io()) blackWin++;
+            else whiteWin++;
+        }
+        for(int i = 0; i<10 ;i++) puts("");
+        printf("%d times: %d / %d (B/W)", play_times, blackWin, whiteWin);
+        puts("");
+        goto end;
+    }
+
+
+
     // check if the user gave a seed for the random generator
     if (argc == 3) {
-        sscanf(argv[1], "-z%u", &idum);
+        sscanf(argv[1], "-z %u", &idum);
+        printf("$ %d\n",idum);
         if (idum == 0)
             idum = true_random_seed();
         command = argv[2];
@@ -1445,12 +1518,21 @@ int michi_console(int argc, char *argv[])
     else
         command = argv[1];
 
+
+
     if (argc < 2)    // default action
         usage();
     else if (strcmp(command,"gtp") == 0)
         gtp_io();
-    else if (strcmp(command,"mcdebug") == 0)
-        printf("%lf\n", mcplayout(pos, amaf_map, owner_map, 1));
+    else if (strcmp(command,"mcdebug") == 0) {
+        
+        if(argc < 3) printf("%lf\n", mcplayout(pos, amaf_map, owner_map, 1));
+        else {
+            
+            // for(int i=0; i<atoi(argv[3]) ; i++) 
+            // printf("%lf\n", mcplayout(pos, amaf_map, owner_map, 1));
+        }
+    }
     else if (strcmp(command,"mcbenchmark") == 0)
         printf("%lf\n", mcbenchmark(2000, pos, amaf_map, owner_map));
     else if (strcmp(command,"tsdebug") == 0) {
@@ -1462,6 +1544,7 @@ int michi_console(int argc, char *argv[])
     }
     else
         usage();
+end:
     free_tree(tree); free(pos);
     free(amaf_map); free(owner_map);
     free(already_suggested); free(mark1); free(mark2);
