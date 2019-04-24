@@ -333,6 +333,39 @@ char* empty_position(Position *pos)
     return "";              // result OK
 }
 
+char* setboard_with_newgame(Position *pos)
+// Reset pos to an initial board position
+{
+    int k = 0;
+    for (int col=0 ; col<=N ; col++) pos->color[k++] = ' ';
+    char init_board[N*N][N] = {
+        ".......",
+        ".......",
+        ".......",
+        ".......",
+        ".......",
+        ".......",
+        "......."
+    };
+    
+    for (int row=1 ; row<=N ; row++) {
+        pos->color[k++] = ' ';
+        for (int col=1 ; col<=N ; col++) pos->color[k++] = init_board[row-1][col-1];
+    }
+    for (int col=0 ; col<W ; col++) pos->color[k++] = ' ';
+    FORALL_POINTS(pos, pt) {
+        if (pos->color[pt] == ' ') continue;
+        pos->env4[pt] = compute_env4(pos, pt, 0);
+        pos->env4d[pt] = compute_env4(pos, pt, 4);
+    }
+
+    pos->ko = pos->last = pos->last2 = 0;
+    pos->capX = pos->cap = 0;
+    pos->n = 0; pos->komi = 7.5;
+    assert(env4_OK(pos));
+    return "";              // result OK
+}
+
 void compute_block(Position *pos, Point pt, Slist stones, Slist libs, int nlibs)
 // Compute block at pt : list of stones and list of liberties
 // Return early when nlibs liberties are found
@@ -1291,7 +1324,7 @@ void gtp_io(void)
     Position *pos, pos2;
 
     pos = &pos2;
-    empty_position(pos);
+    setboard_with_newgame(pos);
     tree = new_tree_node(pos);
 
     for(;;) {
