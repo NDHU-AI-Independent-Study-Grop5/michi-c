@@ -332,13 +332,67 @@ char* empty_position(Position *pos)
     assert(env4_OK(pos));
     return "";              // result OK
 }
+char level[][N*N][N] = {
+    {
+        ".......",
+        ".......",
+        ".......",
+        "... ...",
+        ".......",
+        ".......",
+        "......."
+    },
+    {
+        ".......",
+        "..... .",
+        ".......",
+        "... ...",
+        ".......",
+        ".......",
+        "......."
+    },
+    {
+        ".......",
+        ". ... .",
+        ".......",
+        "... ...",
+        ".......",
+        ".......",
+        "......."
+    },
+    {
+        ".......",
+        ". ... .",
+        ".......",
+        "... ...",
+        ".......",
+        ". .....",
+        "......."
+    },
+    {
+        ".......",
+        ". ... .",
+        ".......",
+        "... ...",
+        ".......",
+        ". ... .",
+        "......."
+    }
+}
 
-char* setboard_with_newgame(Position *pos)
+
+char* setboard_with_newgame(Position *pos, int lvl)
 // Reset pos to an initial board position
 {
     int k = 0;
     for (int col=0 ; col<=N ; col++) pos->color[k++] = ' ';
-    char init_board[N*N][N] = {
+
+    char init_board[N*N][N];// = level[lvl][N*N][N];
+    for(int i=0;i<N;i++) for(int j=0;j<N;j++){
+        init_board[i*j][j]level[lvl][i*j][j]
+    }
+    /*
+     {
         ".......",
         ".......",
         ".......",
@@ -347,7 +401,8 @@ char* setboard_with_newgame(Position *pos)
         ".......",
         "......."
     };
-    
+    */
+
     for (int row=1 ; row<=N ; row++) {
         pos->color[k++] = ' ';
         for (int col=1 ; col<=N ; col++) pos->color[k++] = init_board[row-1][col-1];
@@ -1324,7 +1379,142 @@ void gtp_io(void)
     Position *pos, pos2;
 
     pos = &pos2;
-    setboard_with_newgame(pos);
+    setboard_with_newgame(pos, 0);
+    tree = new_tree_node(pos);
+
+    for(;;) {
+        ret = "";
+        if (fgets(line, BUFLEN, stdin) == NULL) break;
+        line[strlen(line)-1] = 0;
+        log_fmt_s('C', line, NULL);
+        command = strtok(line, " \t\n");
+        if (command == NULL) continue;          // ignore newline epmty line
+        if (command[0] == '#') continue;        // ignore comment line
+        if (sscanf(command, "%d", &i) == 1) {
+            cmdid = command;
+            command = strtok(NULL, " \t\n");
+        }
+        else
+            cmdid = "";
+
+        if (strcmp(command, "play")==0) {
+            c2++; game_ongoing = 1;
+            ret = strtok(NULL, " \t\n");            // color is ignored
+            char *str = strtok(NULL, " \t\n");
+            if(str == NULL) goto finish_command;
+            Point pt = parse_coord(str); 
+            if (pos->color[pt] == '.')
+                ret = play_move(pos, pt);           // suppose alternate play
+            else {
+                if(pt == PASS_MOVE) ret = pass_move(pos);
+                else ret ="Error Illegal move: point not EMPTY\n";
+            }
+        }
+        else if (strcmp(command, "genmove") == 0) {
+            c2++; game_ongoing = 1;
+            Point pt;
+            if (pos->last == PASS_MOVE && pos->n>2) {
+                log_fmt_s('I', "Opponent pass. I pass", NULL);
+                pt = PASS_MOVE;
+            }
+            else {
+                free_tree(tree);
+                tree = new_tree_node(pos);
+                pt = tree_search(tree, N_SIMS, owner_map, 0);
+            }
+            if (pt == PASS_MOVE)
+                pass_move(pos);
+            else if (pt != RESIGN_MOVE)
+                play_move(pos, pt);
+            ret = str_coord(pt, buf);
+        }
+        else if (strcmp(command, "cputime") == 0) {
+            float time_sec = (float) clock() / (float) CLOCKS_PER_SEC;
+            sprintf(buf, "%.3f", time_sec);
+            ret = buf;
+        }
+        else if (strcmp(command, "clear_board") == 0) {
+            if (game_ongoing) begin_game();
+            game_ongoing = 0;
+            free_tree(tree);
+            ret = empty_position(pos);
+            tree = new_tree_node(pos);
+        }
+        else if (strcmp(command, "boardsize") == 0) {
+            char *str = strtok(NULL, " \t\n");
+            if(str == NULL) goto finish_command;
+            int size = atoi(str);
+            if (size != N) {
+                sprintf(buf, "Error: Trying to set incompatible boardsize %s"
+                             " (!= %d)", str, N);
+                log_fmt_s('E', buf, NULL);
+                ret = buf;
+            }
+            else
+                ret = "";
+        }
+        else if (strcmp(command, "komi") == 0) {
+            char *str = strtok(NULL, " \t\n");
+            if(str == NULL) goto finish_command;
+            float komi = (float) atof(str);
+            if (komi != 7.5) {
+                sprintf(buf, "Error: Trying to set incompatible komi %s"
+                             " (!= 7.5)", str);
+                log_fmt_s('E', buf, NULL);
+                ret = buf;
+            }
+            else
+                ret = "";
+        }
+        else if (strcmp(command,"debug") == 0)
+            ret = debug(pos);
+        else if (strcmp(command,"name") == 0)
+            ret = "michi-c";
+        else if (strcmp(command,"version") == 0)
+            ret = "simple go program demo";
+        else if (strcmp(command,"protocol_version") == 0)
+            ret = "2";
+        else if (strcmp(command,"list_commands") == 0)
+            ret = known_commands;
+        else if (strcmp(command,"help") == 0)
+            ret = known_commands;
+        else if (strcmp(command,"known_command") == 0) {
+            char *command = strtok(NULL, " \t\n");
+            if (strstr(known_commands,command) != NULL)
+                ret = "true";
+            else
+                ret = "false";
+        }
+        else if (strcmp(command,"quit") == 0) {
+            printf("=%s \n\n", cmdid);
+            log_hashtable_synthesis();
+            break;
+        }   
+        else {
+            sprintf(msg, "Warning: Ignoring unknown command - %s\n", command);
+            ret = msg;
+        }
+        print_pos(pos, stderr, owner_map);
+finish_command:
+        if ((ret[0]=='E' && ret[1]=='r')
+                        || ret[0]=='W') printf("\n?%s %s\n\n", cmdid, ret);
+        else                            printf("\n=%s %s\n\n", cmdid, ret);
+        fflush(stdout);
+    }
+}
+
+void gtp_level(int lvl)
+{
+    char line[BUFLEN], *cmdid, *command, msg[BUFLEN], *ret;
+    char *known_commands="\nboardsize\ncputime\ndebug subcmd\ngenmove\nhelp\nknown_command"
+    "\nkomi\nlist_commands\nname\nplay\nprotocol_version\nquit\nversion\n";
+    int      game_ongoing=1, i;
+    int      *owner_map=calloc(BOARDSIZE, sizeof(int));
+    TreeNode *tree;
+    Position *pos, pos2;
+
+    pos = &pos2;
+    setboard_with_newgame(pos, lvl);
     tree = new_tree_node(pos);
 
     for(;;) {
@@ -1535,6 +1725,11 @@ int michi_console(int argc, char *argv[])
         for(int i = 0; i<10 ;i++) puts("");
         printf("%d times: %d / %d (B/W)", play_times, blackWin, whiteWin);
         puts("");
+        goto end;
+    } else if (strcmp(argv[1],"play") == 0) {
+        int lvl;
+        sscanf(argv[2], "%d", &lvl);
+        gtp_level(lvl);
         goto end;
     }
 
