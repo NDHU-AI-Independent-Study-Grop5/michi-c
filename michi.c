@@ -332,80 +332,71 @@ char* empty_position(Position *pos)
     assert(env4_OK(pos));
     return "";              // result OK
 }
-char level[][N*N][N] = {
-    {
-        ".......",
-        ".......",
-        ".......",
-        "... ...",
-        ".......",
-        ".......",
-        "......."
-    },
-    {
-        ".......",
-        "..... .",
-        ".......",
-        "... ...",
-        ".......",
-        ".......",
-        "......."
-    },
-    {
-        ".......",
-        ". ... .",
-        ".......",
-        "... ...",
-        ".......",
-        ".......",
-        "......."
-    },
-    {
-        ".......",
-        ". ... .",
-        ".......",
-        "... ...",
-        ".......",
-        ". .....",
-        "......."
-    },
-    {
-        ".......",
-        ". ... .",
-        ".......",
-        "... ...",
-        ".......",
-        ". ... .",
-        "......."
-    }
-}
 
-
-char* setboard_with_newgame(Position *pos, int lvl)
+char* setboard_with_newgame(Position *pos)
 // Reset pos to an initial board position
 {
     int k = 0;
     for (int col=0 ; col<=N ; col++) pos->color[k++] = ' ';
 
-    char init_board[N*N][N];// = level[lvl][N*N][N];
-    for(int i=0;i<N;i++) for(int j=0;j<N;j++){
-        init_board[i*j][j]level[lvl][i*j][j]
-    }
-    /*
-     {
+    char init_board[N][N]= {
         ".......",
         ".......",
         ".......",
+        "... ...",
         ".......",
         ".......",
-        ".......",
-        "......."
-    };
-    */
-
+        "......."};
     for (int row=1 ; row<=N ; row++) {
         pos->color[k++] = ' ';
         for (int col=1 ; col<=N ; col++) pos->color[k++] = init_board[row-1][col-1];
+    }
+    for (int col=0 ; col<W ; col++) pos->color[k++] = ' ';
+    FORALL_POINTS(pos, pt) {
+        if (pos->color[pt] == ' ') continue;
+        pos->env4[pt] = compute_env4(pos, pt, 0);
+        pos->env4d[pt] = compute_env4(pos, pt, 4);
+    }
+
+    pos->ko = pos->last = pos->last2 = 0;
+    pos->capX = pos->cap = 0;
+    pos->n = 0; pos->komi = 7.5;
+    assert(env4_OK(pos));
+    return "";              // result OK
+}
+
+#include "level_patten.c"
+char* setboard_with_level(Position *pos,int lvl) {
+    int k = 0;
+    for (int col=0 ; col<=N ; col++) pos->color[k++] = ' ';
+
+    char board_buffer[N][N];
+    for (int row=0 ; row<N ; row++) for (int col=0 ; col<N ; col++){         
+        switch (lvl)
+        {
+        case 1:
+            board_buffer[row][col] = level_1[row][col];
+            break;
+        case 2:
+            board_buffer[row][col] = level_2[row][col];
+            break;
+        case 3:
+            board_buffer[row][col] = level_3[row][col];
+            break;
+        case 4:
+            board_buffer[row][col] = level_4[row][col];
+            break;
+        case 5:
+            board_buffer[row][col] = level_5[row][col];
+            break;
+        default:
+            board_buffer[row][col]  = '.';
+            break;
+        }
+    }
+    for (int row=1 ; row<=N ; row++) {
+        pos->color[k++] = ' ';
+        for (int col=1 ; col<=N ; col++) pos->color[k++] = board_buffer[row-1][col-1];
     }
     for (int col=0 ; col<W ; col++) pos->color[k++] = ' ';
     FORALL_POINTS(pos, pt) {
@@ -1379,7 +1370,7 @@ void gtp_io(void)
     Position *pos, pos2;
 
     pos = &pos2;
-    setboard_with_newgame(pos, 0);
+    setboard_with_newgame(pos);
     tree = new_tree_node(pos);
 
     for(;;) {
@@ -1514,7 +1505,7 @@ void gtp_level(int lvl)
     Position *pos, pos2;
 
     pos = &pos2;
-    setboard_with_newgame(pos, lvl);
+    setboard_with_level(pos,lvl);
     tree = new_tree_node(pos);
 
     for(;;) {
